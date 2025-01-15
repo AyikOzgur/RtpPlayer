@@ -75,9 +75,7 @@ int main(int argc, char *argv[])
         std::cout << "Updated RTP stream to " << g_ip << ":" << g_port << std::endl;
 
         g_restartReceiver.store(true);
-        std::this_thread::sleep_for(std::chrono::seconds(1)); // Small delay for stability
         g_restartSender.store(true);
-
     });
 
     mainWindow.setCentralWidget(centralWidget);
@@ -140,16 +138,13 @@ void rtpReceiverThreadFunc()
     {
         if (g_restartReceiver.load())
         {
-            std::cout << "Restarting rtp receiver" << std::endl;
             rtpReceiver.close();
-            std::cout << "Rtp receiver closed" << std::endl;
             if (!rtpReceiver.init(g_ip, g_port))
             {
                 std::cout << "Failed to initialize rtp receiver" << std::endl;
                 exit(-1);
             }
             g_restartReceiver.store(false);
-            std::cout << "Rtp receiver initialized" << std::endl;
         }
 
         if (!rtpReceiver.getFrame(receivedFrame))
@@ -157,10 +152,6 @@ void rtpReceiverThreadFunc()
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             std::cout << "Failed to get frame from rtp stream" << std::endl;
             continue;
-        }
-        else
-        {
-            std::cout << "Received frame from rtp stream size " << receivedFrame.size << std::endl;
         }
 
         if (!videoCodec.decode(receivedFrame, decodedFrame))
@@ -216,8 +207,6 @@ void testRtpSenderThreadFunc()
         exit(-1);
     }
 
-    std::cout << "Streaming " << inputFile << " over RTP..." << std::endl;
-
     cv::Mat frame;
     while (true)
     {
@@ -238,7 +227,6 @@ void testRtpSenderThreadFunc()
                 exit(-1);
             }
             g_restartSender.store(false);
-            std::cout << "RTP sender restarted" << std::endl;
         }
 
         // Read frame from video file
