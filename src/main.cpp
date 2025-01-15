@@ -3,15 +3,26 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+
 #include <QApplication>
 #include <QMainWindow>
 #include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QWidget>
+
 #include <opencv2/opencv.hpp>
 #include "VideoCodec.h"
 #include "RtpReceiver.h"
 
 int g_width = 1280;
 int g_height = 720;
+std::string g_ip = "127.0.0.1";
+int g_port = 5004;
+
+std::atomic<bool> g_restartReceiver{false};
+std::atomic<bool> g_restartSender{false};
 
 /// Frame mutex.
 std::mutex g_frameMutex;
@@ -35,11 +46,43 @@ int main(int argc, char *argv[])
 
     mainWindow.setWindowTitle("RtpPlayer");
     mainWindow.resize(g_width, g_height);
-    mainWindow.show();
+
+    // Main widget and layout
+    QWidget *centralWidget = new QWidget(&mainWindow);
+    QVBoxLayout *layout = new QVBoxLayout(centralWidget);
 
     // Create a label to display the video
     QLabel *label = new QLabel(&mainWindow);
-    mainWindow.setCentralWidget(label);
+    layout->addWidget(label);
+
+    // Input fields for IP and port
+    QLineEdit *ipInput = new QLineEdit("127.0.0.1");
+    ipInput->setPlaceholderText("Enter IP address");
+    layout->addWidget(ipInput);
+
+    QLineEdit *portInput = new QLineEdit("5004");
+    portInput->setPlaceholderText("Enter Port");
+    layout->addWidget(portInput);
+
+    // Start button
+    QPushButton *startButton = new QPushButton("Start RTP Stream");
+    layout->addWidget(startButton);
+
+    // Connect start button click to update IP and port
+    QObject::connect(startButton, &QPushButton::clicked, [&]() {
+        g_ip = ipInput->text().toStdString();
+        g_port = portInput->text().toInt();
+        std::cout << "Updated RTP stream to " << g_ip << ":" << g_port << std::endl;
+
+        g_restartReceiver.store(true);
+        std::this_thread::sleep_for(std::chrono::seconds(1)); // Small delay for stability
+        g_restartSender.store(true);
+
+    });
+
+    mainWindow.setCentralWidget(centralWidget);
+    mainWindow.show();
+
 
     // Start rtp sender thread
     std::thread rtpSenderThread(testRtpSenderThreadFunc);
@@ -87,7 +130,7 @@ void rtpReceiverThreadFunc()
 
     cr::video::Frame receivedFrame(g_width, g_height, cr::video::Fourcc::H264);
     cr::video::Frame decodedFrame(g_width, g_height, cr::video::Fourcc::RGB24);
-    if (!rtpReceiver.init("127.0.0.1", 5004))
+    if (!rtpReceiver.init(g_ip, g_port))
     {
         std::cout << "Failed to initialize rtp receiver" << std::endl;
         exit(-1);
@@ -95,11 +138,29 @@ void rtpReceiverThreadFunc()
 
     while(true)
     {
+        if (g_restartReceiver.load())
+        {
+            std::cout << "Restarting rtp receiver" << std::endl;
+            rtpReceiver.close();
+            std::cout << "Rtp receiver closed" << std::endl;
+            if (!rtpReceiver.init(g_ip, g_port))
+            {
+                std::cout << "Failed to initialize rtp receiver" << std::endl;
+                exit(-1);
+            }
+            g_restartReceiver.store(false);
+            std::cout << "Rtp receiver initialized" << std::endl;
+        }
+
         if (!rtpReceiver.getFrame(receivedFrame))
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             std::cout << "Failed to get frame from rtp stream" << std::endl;
             continue;
+        }
+        else
+        {
+            std::cout << "Received frame from rtp stream size " << receivedFrame.size << std::endl;
         }
 
         if (!videoCodec.decode(receivedFrame, decodedFrame))
@@ -144,7 +205,7 @@ void testRtpSenderThreadFunc()
                            ",height=" + std::to_string(height) + ",framerate=" + std::to_string(int(fps)) + "/1 ! "
                            "x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 ! "
                            "rtph264pay config-interval=1 pt=96 ! "
-                           "udpsink host=127.0.0.1 port=5004";
+                           "udpsink host=" + g_ip + " port=" + std::to_string(g_port);
 
     // Open the video writer with the GStreamer pipeline
     cv::VideoWriter writer(pipeline, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
@@ -160,6 +221,26 @@ void testRtpSenderThreadFunc()
     cv::Mat frame;
     while (true)
     {
+        if (g_restartSender.load())
+        {
+            std::string pipelineUpdated = "appsrc ! "
+                           "videoconvert !  video/x-raw,format=I420,width=" + std::to_string(width) +
+                           ",height=" + std::to_string(height) + ",framerate=" + std::to_string(int(fps)) + "/1 ! "
+                           "x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 ! "
+                           "rtph264pay config-interval=1 pt=96 ! "
+                           "udpsink host=" + g_ip + " port=" + std::to_string(g_port);
+
+            writer.release();
+            writer.open(pipelineUpdated, cv::CAP_GSTREAMER, 0, fps, cv::Size(width, height), true);
+            if (!writer.isOpened()) 
+            {
+                std::cerr << "Error: Could not open video writer with GStreamer pipeline" << std::endl;
+                exit(-1);
+            }
+            g_restartSender.store(false);
+            std::cout << "RTP sender restarted" << std::endl;
+        }
+
         // Read frame from video file
         cap >> frame;
         if (frame.empty()) 
