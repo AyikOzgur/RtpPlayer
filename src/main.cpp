@@ -23,6 +23,7 @@ int g_port = 5004;
 
 std::atomic<bool> g_restartReceiver{false};
 std::atomic<bool> g_restartSender{false};
+std::atomic<bool> g_shutdown{false};
 
 /// Frame mutex.
 std::mutex g_frameMutex;
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
     layout->addWidget(portInput);
 
     // Start button
-    QPushButton *startButton = new QPushButton("Start RTP Stream");
+    QPushButton *startButton = new QPushButton("Play", &mainWindow);
     layout->addWidget(startButton);
 
     // Connect start button click to update IP and port
@@ -78,9 +79,9 @@ int main(int argc, char *argv[])
         g_restartSender.store(true);
     });
 
+
     mainWindow.setCentralWidget(centralWidget);
     mainWindow.show();
-
 
     // Start rtp sender thread
     std::thread rtpSenderThread(testRtpSenderThreadFunc);
@@ -134,7 +135,7 @@ void rtpReceiverThreadFunc()
         exit(-1);
     }
 
-    while(true)
+    while(!g_shutdown.load())
     {
         if (g_restartReceiver.load())
         {
@@ -170,6 +171,7 @@ void rtpReceiverThreadFunc()
         g_condVar.notify_one();
         lk.unlock();
     }
+    rtpReceiver.close();
 }
 
 
@@ -208,7 +210,7 @@ void testRtpSenderThreadFunc()
     }
 
     cv::Mat frame;
-    while (true)
+    while (!g_shutdown.load())
     {
         if (g_restartSender.load())
         {
