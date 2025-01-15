@@ -52,6 +52,9 @@ set(CMAKE_AUTOUIC ON)
 find_package(OpenCV REQUIRED)
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
 
+target_link_libraries(${PROJECT_NAME} VideoCodec)
+target_link_libraries(${PROJECT_NAME} RtpReceiver)
+
 
 ################################################################################
 ## ADDITIONAL SETTINGS

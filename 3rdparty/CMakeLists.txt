@@ -33,3 +33,4 @@ SET(${PARENT}_SUBMODULE_CACHE_OVERWRITE OFF CACHE BOOL "" FORCE)
 ## Adding subdirectories according to the 3rd-party configuration
 ################################################################################
 add_subdirectory(VideoCodec)
+add_subdirectory(RtpReceiver)

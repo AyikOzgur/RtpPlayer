@@ -41,5 +41,5 @@ endif()
 ## INCLUDING SUBDIRECTORIES
 ## Adding subdirectories according to the project configuration
 ################################################################################
-add_subdirectory(3rdpart)
+add_subdirectory(3rdparty)
 add_subdirectory(src)
