@@ -16,8 +16,7 @@
 #include "VideoCodec.h"
 #include "RtpReceiver.h"
 
-int g_width = 1280;
-int g_height = 720;
+
 std::string g_ip = "127.0.0.1";
 int g_port = 5004;
 
@@ -33,7 +32,7 @@ std::condition_variable g_condVar;
 std::mutex g_condVarMtx;
 /// Cond variable flag for read frames.
 std::atomic<bool> g_condVarFlag{false};
-cr::video::Frame g_sharedFrame(g_width, g_height, cr::video::Fourcc::H264);
+cr::video::Frame g_sharedFrame;
 
 
 void testRtpSenderThreadFunc();
@@ -46,7 +45,6 @@ int main(int argc, char *argv[])
     QMainWindow mainWindow;
 
     mainWindow.setWindowTitle("RtpPlayer");
-    mainWindow.resize(g_width, g_height);
 
     // Main widget and layout
     QWidget *centralWidget = new QWidget(&mainWindow);
@@ -87,11 +85,14 @@ int main(int argc, char *argv[])
     std::thread rtpSenderThread(testRtpSenderThreadFunc);
     rtpSenderThread.detach();
 
+    g_sharedFrame.fourcc = cr::video::Fourcc::RGB24;
+
     // Start rtp receiver thread
     std::thread rtpReceiverThread(rtpReceiverThreadFunc);
     rtpReceiverThread.detach();
 
-    cr::video::Frame frame(g_width, g_height, cr::video::Fourcc::RGB24);
+    cr::video::Frame frame;
+    frame.fourcc = cr::video::Fourcc::RGB24;
 
     while(true)
     {
@@ -127,8 +128,9 @@ void rtpReceiverThreadFunc()
     RtpReceiver rtpReceiver;
     VideoCodec videoCodec;
 
-    cr::video::Frame receivedFrame(g_width, g_height, cr::video::Fourcc::H264);
-    cr::video::Frame decodedFrame(g_width, g_height, cr::video::Fourcc::RGB24);
+    cr::video::Frame receivedFrame;
+    cr::video::Frame decodedFrame;
+    decodedFrame.fourcc = cr::video::Fourcc::RGB24;
     if (!rtpReceiver.init(g_ip, g_port))
     {
         std::cout << "Failed to initialize rtp receiver" << std::endl;
