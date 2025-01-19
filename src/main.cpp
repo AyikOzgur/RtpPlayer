@@ -180,7 +180,7 @@ void rtpReceiverThreadFunc()
 void testRtpSenderThreadFunc()
 {
     // Open video file
-    std::string inputFile = "../../test.mp4";
+    std::string inputFile = "../../test2.mp4";
     cv::VideoCapture cap(inputFile);
     
     if (!cap.isOpened()) 
@@ -197,8 +197,8 @@ void testRtpSenderThreadFunc()
     // GStreamer pipeline for RTP streaming
     std::string pipeline = "appsrc ! "
                            "videoconvert !  video/x-raw,format=I420,width=" + std::to_string(width) +
-                           ",height=" + std::to_string(height) + ",framerate=" + std::to_string(int(fps)) + "/1 ! "
-                           "x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 ! "
+                           ",height=" + std::to_string(height) + //",framerate=" + std::to_string(int(fps)) + "/1 ! "
+                           " ! x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 ! "
                            "rtph264pay config-interval=1 pt=96 ! "
                            "udpsink host=" + g_ip + " port=" + std::to_string(g_port);
 
@@ -219,7 +219,7 @@ void testRtpSenderThreadFunc()
             std::string pipelineUpdated = "appsrc ! "
                            "videoconvert !  video/x-raw,format=I420,width=" + std::to_string(width) +
                            ",height=" + std::to_string(height) + ",framerate=" + std::to_string(int(fps)) + "/1 ! "
-                           "x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 ! "
+                           "x264enc bitrate=500 sliced-threads=false threads=1 key-int-max=30 bframes=0  tune=zerolatency speed-preset=ultrafast ! "
                            "rtph264pay config-interval=1 pt=96 ! "
                            "udpsink host=" + g_ip + " port=" + std::to_string(g_port);
 
