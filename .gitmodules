@@ -1,0 +1,6 @@
+[submodule "3rdparty/RtpReceiver"]
+	path = 3rdparty/RtpReceiver
+	url = git@github.com:AyikOzgur/RtpReceiver.git
+[submodule "3rdparty/VideoCodec"]
+	path = 3rdparty/VideoCodec
+	url = git@github.com:AyikOzgur/VideoCodec.git
